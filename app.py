@@ -1,4 +1,9 @@
 import streamlit as st
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from io import BytesIO
+import pandas as pd
 
 st.set_page_config(page_title="MSME Loan Proposal Generator", layout="wide")
 
@@ -259,6 +264,386 @@ def determine_msme_category(annual_turnover_value):
     return "Medium"
 
 
+def generate_excel_proposal(
+    business_name,
+    owner_name,
+    business_type,
+    registration_type,
+    pan_number,
+    gst_number,
+    annual_turnover_value,
+    category,
+    guarantor_details,
+    guarantor_analysis,
+    cibil_scores,
+    financials,
+    financial_ratios,
+    dscr_analysis,
+    loan_requirements,
+    recommendation,
+    bank_rating,
+    bank_comments,
+    provide_swot,
+    swot_data,
+):
+    """Generate Excel file with automatic formulas"""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Loan Proposal"
+    
+    # Define styles
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=12)
+    subheader_fill = PatternFill(start_color="B4C7E7", end_color="B4C7E7", fill_type="solid")
+    subheader_font = Font(bold=True, size=11)
+    normal_font = Font(size=10)
+    currency_format = '₹#,##0.00'
+    percent_format = '0.00%'
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    row = 1
+    
+    # Title
+    ws.merge_cells(f'A{row}:D{row}')
+    cell = ws[f'A{row}']
+    cell.value = "COMPREHENSIVE MSME LOAN PROPOSAL"
+    cell.font = Font(bold=True, size=14)
+    cell.alignment = Alignment(horizontal='center', vertical='center')
+    row += 2
+    
+    # Section 1: Business Information
+    ws[f'A{row}'].value = "BUSINESS INFORMATION"
+    ws[f'A{row}'].fill = header_fill
+    ws[f'A{row}'].font = header_font
+    ws.merge_cells(f'A{row}:D{row}')
+    row += 1
+    
+    business_data = [
+        ("Business Name", business_name),
+        ("Owner/Proprietor Name", owner_name),
+        ("Business Type", business_type),
+        ("Registration Type", registration_type),
+        ("PAN Number", pan_number),
+        ("GST Number", gst_number),
+        ("Annual Turnover (Lakhs)", annual_turnover_value / 100000),
+        ("MSME Category", category),
+    ]
+    
+    for label, value in business_data:
+        ws[f'A{row}'].value = label
+        ws[f'A{row}'].font = Font(bold=True)
+        ws[f'B{row}'].value = value
+        if isinstance(value, float) and label == "Annual Turnover (Lakhs)":
+            ws[f'B{row}'].number_format = '#,##0.00'
+        row += 1
+    
+    row += 1
+    
+    # Section 2: Guarantor Details
+    ws[f'A{row}'].value = "GUARANTOR INFORMATION"
+    ws[f'A{row}'].fill = header_fill
+    ws[f'A{row}'].font = header_font
+    ws.merge_cells(f'A{row}:D{row}')
+    row += 1
+    
+    ws[f'A{row}'].value = "Has Guarantor"
+    ws[f'A{row}'].font = Font(bold=True)
+    ws[f'B{row}'].value = "Yes" if guarantor_details["has_guarantor"] else "No"
+    row += 1
+    
+    if guarantor_details["has_guarantor"]:
+        guarantor_data = [
+            ("Guarantor Name", guarantor_details["name"]),
+            ("Relationship", guarantor_details["relationship"]),
+            ("Contact Number", guarantor_details["contact"]),
+            ("PAN", guarantor_details["pan"]),
+            ("Net Worth (Lakhs)", guarantor_details["net_worth"] / 100000),
+            ("CIBIL Score", guarantor_details["cibil_score"]),
+        ]
+        for label, value in guarantor_data:
+            ws[f'A{row}'].value = label
+            ws[f'A{row}'].font = Font(bold=True)
+            ws[f'B{row}'].value = value
+            if isinstance(value, float) and "Lakhs" in label:
+                ws[f'B{row}'].number_format = '#,##0.00'
+            row += 1
+    
+    ws[f'A{row}'].value = "Guarantor Rating"
+    ws[f'A{row}'].font = Font(bold=True)
+    ws[f'B{row}'].value = guarantor_analysis["rating"]
+    row += 1
+    
+    ws[f'A{row}'].value = "Guarantor Assessment"
+    ws[f'A{row}'].font = Font(bold=True)
+    ws[f'B{row}'].value = guarantor_analysis["comment"]
+    ws[f'B{row}'].alignment = Alignment(wrap_text=True)
+    row += 1
+    
+    row += 1
+    
+    # Section 3: Loan Requirements
+    ws[f'A{row}'].value = "LOAN REQUIREMENTS"
+    ws[f'A{row}'].fill = header_fill
+    ws[f'A{row}'].font = header_font
+    ws.merge_cells(f'A{row}:D{row}')
+    row += 1
+    
+    ws[f'A{row}'].value = "Working Capital Loan (Lakhs)"
+    ws[f'A{row}'].font = Font(bold=True)
+    ws[f'B{row}'].value = loan_requirements["working_capital_loan"] / 100000
+    ws[f'B{row}'].number_format = '#,##0.00'
+    row += 1
+    
+    ws[f'A{row}'].value = "Term Loan (Lakhs)"
+    ws[f'A{row}'].font = Font(bold=True)
+    ws[f'B{row}'].value = loan_requirements["term_loan"] / 100000
+    ws[f'B{row}'].number_format = '#,##0.00'
+    row += 1
+    
+    ws[f'A{row}'].value = "Total Loan Required (Lakhs)"
+    ws[f'A{row}'].font = Font(bold=True)
+    ws[f'B{row}'].value = loan_requirements["total_loan"] / 100000
+    ws[f'B{row}'].number_format = '#,##0.00'
+    row += 1
+    
+    ws[f'A{row}'].value = "Loan-to-Turnover Ratio (%)"
+    ws[f'A{row}'].font = Font(bold=True)
+    ws[f'B{row}'].value = (loan_requirements["total_loan"] / annual_turnover_value * 100) if annual_turnover_value > 0 else 0
+    ws[f'B{row}'].number_format = '0.00'
+    row += 1
+    
+    if loan_requirements["term_loan"] > 0:
+        ws[f'A{row}'].value = "Term Loan Tenure (years)"
+        ws[f'A{row}'].font = Font(bold=True)
+        ws[f'B{row}'].value = loan_requirements["tenure_years"]
+        row += 1
+        
+        ws[f'A{row}'].value = "Interest Rate (% p.a.)"
+        ws[f'A{row}'].font = Font(bold=True)
+        ws[f'B{row}'].value = loan_requirements["interest_rate"] / 100
+        ws[f'B{row}'].number_format = '0.00%'
+        row += 1
+    
+    row += 1
+    
+    # Section 4: CIBIL Scores
+    if cibil_scores:
+        ws[f'A{row}'].value = "CREDIT ASSESSMENT (CIBIL)"
+        ws[f'A{row}'].fill = header_fill
+        ws[f'A{row}'].font = header_font
+        ws.merge_cells(f'A{row}:D{row}')
+        row += 1
+        
+        ws[f'A{row}'].value = "Individual CIBIL Score"
+        ws[f'A{row}'].font = Font(bold=True)
+        ws[f'B{row}'].value = cibil_scores["individual"]
+        row += 1
+        
+        if cibil_scores.get("commercial"):
+            ws[f'A{row}'].value = "Commercial CIBIL Score"
+            ws[f'A{row}'].font = Font(bold=True)
+            ws[f'B{row}'].value = cibil_scores["commercial"]
+            row += 1
+        
+        row += 1
+    
+    # Section 5: Financial Ratios with Formulas
+    if financial_ratios:
+        ws[f'A{row}'].value = "FINANCIAL RATIOS & ANALYSIS"
+        ws[f'A{row}'].fill = header_fill
+        ws[f'A{row}'].font = header_font
+        ws.merge_cells(f'A{row}:D{row}')
+        row += 1
+        
+        ws[f'A{row}'].value = "Metric"
+        ws[f'B{row}'].value = "Value"
+        ws[f'C{row}'].value = "Rating"
+        ws[f'D{row}'].value = "Comment"
+        for col in ['A', 'B', 'C', 'D']:
+            ws[f'{col}{row}'].fill = subheader_fill
+            ws[f'{col}{row}'].font = subheader_font
+        row += 1
+        
+        ratio_data = [
+            ("Net Profit Margin (%)", financial_ratios["profit_margin"]["value"]),
+            ("Operating Margin (%)", financial_ratios["operating_margin"]["value"]),
+            ("Return on Assets (%)", financial_ratios["roa"]["value"]),
+            ("Current Ratio", financial_ratios["current_ratio"]["value"]),
+            ("Debt-to-Equity Ratio", financial_ratios["debt_to_equity"]["value"]),
+        ]
+        
+        for label, value in ratio_data:
+            ws[f'A{row}'].value = label
+            ws[f'B{row}'].value = value
+            ws[f'B{row}'].number_format = '0.00'
+            key = label.split()[0].lower() if "margin" in label.lower() else label.replace(" Ratio", "").replace("-", "_").lower()
+            if "profit" in label.lower():
+                key = "profit_margin"
+            elif "operating" in label.lower():
+                key = "operating_margin"
+            elif "return" in label.lower():
+                key = "roa"
+            elif "current" in label.lower():
+                key = "current_ratio"
+            elif "debt" in label.lower():
+                key = "debt_to_equity"
+            
+            ws[f'C{row}'].value = financial_ratios[key]["rating"]
+            ws[f'D{row}'].value = financial_ratios[key]["comment"]
+            ws[f'D{row}'].alignment = Alignment(wrap_text=True)
+            row += 1
+        
+        row += 1
+    
+    # Section 6: DSCR Analysis
+    if dscr_analysis:
+        ws[f'A{row}'].value = "DEBT SERVICE COVERAGE RATIO (DSCR) ANALYSIS"
+        ws[f'A{row}'].fill = header_fill
+        ws[f'A{row}'].font = header_font
+        ws.merge_cells(f'A{row}:D{row}')
+        row += 1
+        
+        ws[f'A{row}'].value = "Net Operating Income (Lakhs)"
+        ws[f'A{row}'].font = Font(bold=True)
+        ws[f'B{row}'].value = dscr_analysis["net_operating_income"] / 100000
+        ws[f'B{row}'].number_format = '#,##0.00'
+        row += 1
+        
+        ws[f'A{row}'].value = "Annual Principal Repayment (Lakhs)"
+        ws[f'A{row}'].font = Font(bold=True)
+        ws[f'B{row}'].value = dscr_analysis["annual_principal"] / 100000
+        ws[f'B{row}'].number_format = '#,##0.00'
+        row += 1
+        
+        ws[f'A{row}'].value = "Annual Interest (Lakhs)"
+        ws[f'A{row}'].font = Font(bold=True)
+        ws[f'B{row}'].value = dscr_analysis["annual_interest"] / 100000
+        ws[f'B{row}'].number_format = '#,##0.00'
+        row += 1
+        
+        ws[f'A{row}'].value = "Total Annual Debt Service (Lakhs)"
+        ws[f'A{row}'].font = Font(bold=True)
+        ws[f'B{row}'].value = dscr_analysis["total_debt_service"] / 100000
+        ws[f'B{row}'].number_format = '#,##0.00'
+        row += 1
+        
+        ws[f'A{row}'].value = "DSCR"
+        ws[f'A{row}'].font = Font(bold=True)
+        ws[f'B{row}'].value = dscr_analysis["dscr"]
+        ws[f'B{row}'].number_format = '0.00'
+        row += 1
+        
+        row += 1
+    
+    # Section 7: Loan Recommendation
+    ws[f'A{row}'].value = "LOAN RECOMMENDATION"
+    ws[f'A{row}'].fill = header_fill
+    ws[f'A{row}'].font = header_font
+    ws.merge_cells(f'A{row}:D{row}')
+    row += 1
+    
+    ws[f'A{row}'].value = "Recommendation Score"
+    ws[f'A{row}'].font = Font(bold=True)
+    ws[f'B{row}'].value = f"{recommendation['score']}/100"
+    row += 1
+    
+    ws[f'A{row}'].value = "Overall Recommendation"
+    ws[f'A{row}'].font = Font(bold=True)
+    ws[f'B{row}'].value = recommendation["recommendation"]
+    row += 1
+    
+    ws[f'A{row}'].value = "Details"
+    ws[f'A{row}'].font = Font(bold=True)
+    ws[f'B{row}'].value = recommendation["details"]
+    ws[f'B{row}'].alignment = Alignment(wrap_text=True)
+    row += 1
+    
+    row += 1
+    
+    # Section 8: Bank Assessment
+    ws[f'A{row}'].value = "BANK INTERNAL ASSESSMENT"
+    ws[f'A{row}'].fill = header_fill
+    ws[f'A{row}'].font = header_font
+    ws.merge_cells(f'A{row}:D{row}')
+    row += 1
+    
+    ws[f'A{row}'].value = "Bank Internal Rating"
+    ws[f'A{row}'].font = Font(bold=True)
+    ws[f'B{row}'].value = bank_rating
+    row += 1
+    
+    ws[f'A{row}'].value = "Internal Comments"
+    ws[f'A{row}'].font = Font(bold=True)
+    ws[f'B{row}'].value = bank_comments
+    ws[f'B{row}'].alignment = Alignment(wrap_text=True)
+    row += 1
+    
+    # Section 9: SWOT Analysis (if provided)
+    if provide_swot and swot_data:
+        row += 1
+        ws[f'A{row}'].value = "SWOT ANALYSIS"
+        ws[f'A{row}'].fill = header_fill
+        ws[f'A{row}'].font = header_font
+        ws.merge_cells(f'A{row}:D{row}')
+        row += 1
+        
+        ws[f'A{row}'].value = "Strengths"
+        ws[f'A{row}'].fill = subheader_fill
+        ws[f'A{row}'].font = subheader_font
+        row += 1
+        if "strengths" in swot_data:
+            for item in swot_data["strengths"]:
+                ws[f'A{row}'].value = f"• {item}"
+                row += 1
+        
+        row += 1
+        ws[f'A{row}'].value = "Weaknesses"
+        ws[f'A{row}'].fill = subheader_fill
+        ws[f'A{row}'].font = subheader_font
+        row += 1
+        if "weaknesses" in swot_data:
+            for item in swot_data["weaknesses"]:
+                ws[f'A{row}'].value = f"• {item}"
+                row += 1
+        
+        row += 1
+        ws[f'A{row}'].value = "Opportunities"
+        ws[f'A{row}'].fill = subheader_fill
+        ws[f'A{row}'].font = subheader_font
+        row += 1
+        if "opportunities" in swot_data:
+            for item in swot_data["opportunities"]:
+                ws[f'A{row}'].value = f"• {item}"
+                row += 1
+        
+        row += 1
+        ws[f'A{row}'].value = "Threats"
+        ws[f'A{row}'].fill = subheader_fill
+        ws[f'A{row}'].font = subheader_font
+        row += 1
+        if "threats" in swot_data:
+            for item in swot_data["threats"]:
+                ws[f'A{row}'].value = f"• {item}"
+                row += 1
+    
+    # Adjust column widths
+    ws.column_dimensions['A'].width = 30
+    ws.column_dimensions['B'].width = 20
+    ws.column_dimensions['C'].width = 15
+    ws.column_dimensions['D'].width = 35
+    
+    # Save to BytesIO
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
 def render_guidelines(category):
     guidelines = MSME_GUIDELINES[category]
     st.subheader(f"MSME Category: {category}")
@@ -461,9 +846,10 @@ def main():
         weaknesses = st.text_area("Weaknesses (comma-separated)") if provide_swot else ""
         opportunities = st.text_area("Opportunities (comma-separated)") if provide_swot else ""
         threats = st.text_area("Threats (comma-separated)") if provide_swot else ""
+        swot_data = None
 
         st.header("Bank Internal Assessment")
-        bank_rating = st.selectbox("Bank Internal Rating", ["A", "B", "C", "D", "E"])
+        bank_rating = st.text_input("Bank Internal Rating (e.g., A1, A2, B1, B2, C1, C2, D1, D2, E1, E2)")
         bank_comments = st.text_area("Internal Comments / Remarks")
 
         submitted = st.form_submit_button("Generate Proposal")
@@ -522,6 +908,17 @@ def main():
             "total_loan": (working_capital_loan + term_loan) * 100000,
         }
 
+        # Construct SWOT data if provided
+        if provide_swot:
+            swot_data = {
+                "strengths": [s.strip() for s in strengths.split(',') if s.strip()],
+                "weaknesses": [w.strip() for w in weaknesses.split(',') if w.strip()],
+                "opportunities": [o.strip() for o in opportunities.split(',') if o.strip()],
+                "threats": [t.strip() for t in threats.split(',') if t.strip()],
+            }
+        else:
+            swot_data = None
+
         recommendation = generate_loan_recommendation(
             cibil_scores,
             financial_ratios,
@@ -532,6 +929,38 @@ def main():
         )
 
         st.success("Proposal generated successfully")
+
+        # Generate Excel file for download
+        excel_file = generate_excel_proposal(
+            business_name,
+            owner_name,
+            business_type,
+            registration_type,
+            pan_number,
+            gst_number,
+            annual_turnover_value,
+            category,
+            guarantor_details,
+            guarantor_analysis,
+            cibil_scores,
+            financials,
+            financial_ratios,
+            dscr_analysis,
+            loan_requirements,
+            recommendation,
+            bank_rating,
+            bank_comments,
+            provide_swot,
+            swot_data if provide_swot else None,
+        )
+        
+        # Download button
+        st.download_button(
+            label="📥 Download Proposal as Excel",
+            data=excel_file,
+            file_name=f"MSME_Loan_Proposal_{business_name.replace(' ', '_')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
         with st.expander("MSME Guidelines", expanded=True):
             render_guidelines(category)
