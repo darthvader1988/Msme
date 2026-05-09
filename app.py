@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
 
+import openpyxl
+from openpyxl.styles import PatternFill, Font, Border, Side, Alignment
+from openpyxl.utils import get_column_letter
 # MSME Guidelines based on RBI classification
 MSME_GUIDELINES = {
     "Micro": {
